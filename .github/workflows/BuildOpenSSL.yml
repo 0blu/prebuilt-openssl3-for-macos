@@ -1,0 +1,40 @@
+name: Build OpenSSL Libs
+
+on: ['workflow_dispatch']
+
+jobs:
+  build:
+    runs-on: self-hosted # AppleSilicon Mac
+    steps:
+      - name: Using brew to build OpenSSL arm64
+        run: brew install openssl@3
+
+      - name: Using brew to build OpenSSL x86_64
+        run: axbrew install openssl@3
+
+      - name: Get installed LIBSSL_VERSION
+        run: echo "LIBSSL_VERSION=$(ls -1 /opt/homebrew/Cellar/openssl@3/ | tail -1)" >> $GITHUB_ENV
+
+      - name: Merge Libs
+        run: |
+          mkdir -p openssl3/lib/
+          echo ${{ env.LIBSSL_VERSION }} > openssl3/lib/VERSION
+          lipo -create /opt/homebrew/Cellar/openssl@3/${{ env.LIBSSL_VERSION }}/lib/libssl.dylib /usr/local/homebrew/Cellar/openssl@3/${{ env.LIBSSL_VERSION }}/lib/libssl.dylib -output openssl3/lib/libssl.dylib
+          lipo -create /opt/homebrew/Cellar/openssl@3/${{ env.LIBSSL_VERSION }}/lib/libssl.3.dylib /usr/local/homebrew/Cellar/openssl@3/${{ env.LIBSSL_VERSION }}/lib/libssl.3.dylib -output openssl3/lib/libssl.3.dylib
+          lipo -create /opt/homebrew/Cellar/openssl@3/${{ env.LIBSSL_VERSION }}/lib/libcrypto.dylib /usr/local/homebrew/Cellar/openssl@3/${{ env.LIBSSL_VERSION }}/lib/libcrypto.dylib -output openssl3/lib/libcrypto.dylib
+          lipo -create /opt/homebrew/Cellar/openssl@3/${{ env.LIBSSL_VERSION }}/lib/libcrypto.3.dylib /usr/local/homebrew/Cellar/openssl@3/${{ env.LIBSSL_VERSION }}/lib/libcrypto.3.dylib -output openssl3/lib/libcrypto.3.dylib
+          mkdir -p openssl3/lib/engines-3
+          lipo -create /opt/homebrew/Cellar/openssl@3/${{ env.LIBSSL_VERSION }}/lib/engines-3/capi.dylib /usr/local/homebrew/Cellar/openssl@3/${{ env.LIBSSL_VERSION }}/lib/engines-3/capi.dylib -output openssl3/lib/engines-3/capi.dylib
+          lipo -create /opt/homebrew/Cellar/openssl@3/${{ env.LIBSSL_VERSION }}/lib/engines-3/loader_attic.dylib /usr/local/homebrew/Cellar/openssl@3/${{ env.LIBSSL_VERSION }}/lib/engines-3/loader_attic.dylib -output openssl3/lib/engines-3/loader_attic.dylib
+          lipo -create /opt/homebrew/Cellar/openssl@3/${{ env.LIBSSL_VERSION }}/lib/engines-3/padlock.dylib /usr/local/homebrew/Cellar/openssl@3/${{ env.LIBSSL_VERSION }}/lib/engines-3/padlock.dylib -output openssl3/lib/engines-3/padlock.dylib
+          mkdir -p openssl3/lib/ossl-modules
+          lipo -create /opt/homebrew/Cellar/openssl@3/${{ env.LIBSSL_VERSION }}/lib/ossl-modules/legacy.dylib /usr/local/homebrew/Cellar/openssl@3/${{ env.LIBSSL_VERSION }}/lib/ossl-modules/legacy.dylib -output openssl3/lib/ossl-modules/legacy.dylib
+          mkdir -p result
+          mv openssl3/lib result/openssl-${{ env.LIBSSL_VERSION }}
+
+      - name: Upload ZIP
+        uses: actions/upload-artifact@v3
+        with:
+          name: openssl-${{ env.LIBSSL_VERSION }}
+          path: result
+          if-no-files-found: error
